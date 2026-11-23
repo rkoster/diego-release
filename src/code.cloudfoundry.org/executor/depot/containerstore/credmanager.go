@@ -101,16 +101,15 @@ func (c *noopManager) GenerateInitialCredentials(_ lager.Logger, container execu
 }
 
 type credManager struct {
-	logger                        lager.Logger
-	metronClient                  loggingclient.IngressClient
-	validityPeriod                time.Duration
-	entropyReader                 io.Reader
-	clock                         clock.Clock
-	CaCert                        *x509.Certificate
-	privateKey                    *rsa.PrivateKey
-	handlers                      []CredentialHandler
-	generateKey                   func(random io.Reader, bits int) (*rsa.PrivateKey, error)
-	serviceAccountIdentityEnabled bool
+	logger         lager.Logger
+	metronClient   loggingclient.IngressClient
+	validityPeriod time.Duration
+	entropyReader  io.Reader
+	clock          clock.Clock
+	CaCert         *x509.Certificate
+	privateKey     *rsa.PrivateKey
+	handlers       []CredentialHandler
+	generateKey    func(random io.Reader, bits int) (*rsa.PrivateKey, error)
 }
 
 //go:generate counterfeiter -o containerstorefakes/fake_cred_handler.go . CredentialHandler
@@ -134,11 +133,6 @@ type CredentialHandler interface {
 
 // CredManagerOption is a functional option for NewCredManager.
 type CredManagerOption func(*credManager)
-
-// WithServiceAccountIdentity enables the platform-owned account SAN contract.
-func WithServiceAccountIdentity(enabled bool) CredManagerOption {
-	return func(c *credManager) { c.serviceAccountIdentityEnabled = enabled }
-}
 
 // WithKeyGenerator overrides the RSA key generation function used by the
 // CredManager. This is provided for testing only — production callers should
@@ -420,9 +414,6 @@ func (c *credManager) generateC2cCred(logger lager.Logger, container executor.Co
 func (c *credManager) generateCredForSAN(logger lager.Logger, certSAN certificateSAN, certGUID string) (Credential, error) {
 	if reservedAccountIdentity(certGUID) {
 		return Credential{}, fmt.Errorf("instance GUID uses reserved service account identity namespace")
-	}
-	if certSAN.ServiceAccount != nil && !c.serviceAccountIdentityEnabled {
-		return Credential{}, fmt.Errorf("service account identity is not enabled")
 	}
 	if certSAN.ServiceAccount != nil && !serviceAccountNamePattern.MatchString(certSAN.ServiceAccount.Name) {
 		return Credential{}, fmt.Errorf("invalid service account name")

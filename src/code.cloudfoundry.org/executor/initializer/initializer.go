@@ -85,7 +85,6 @@ type ExecutorConfig struct {
 	InstanceIdentityCredDir               string                `json:"instance_identity_cred_dir,omitempty"`
 	InstanceIdentityPrivateKeyPath        string                `json:"instance_identity_private_key_path,omitempty"`
 	InstanceIdentityValidityPeriod        durationjson.Duration `json:"instance_identity_validity_period,omitempty"`
-	ServiceAccountIdentityEnabled         bool                  `json:"service_account_identity_enabled"`
 	MaxCacheSizeInBytes                   uint64                `json:"max_cache_size_in_bytes,omitempty"`
 	MinCachePartitionFreeBytes            uint64                `json:"min_cache_partition_free_bytes,omitempty"`
 	MaxConcurrentDownloads                int                   `json:"max_concurrent_downloads,omitempty"`
@@ -172,9 +171,6 @@ func TLSConfigFromConfig(logger lager.Logger, certsRetriever CertPoolRetriever, 
 }
 
 func CredManagerFromConfig(logger lager.Logger, metronClient loggingclient.IngressClient, config ExecutorConfig, clock clock.Clock, handlers ...containerstore.CredentialHandler) (containerstore.CredManager, error) {
-	if config.ServiceAccountIdentityEnabled && config.InstanceIdentityCredDir == "" {
-		return nil, errors.New("service account identity requires instance identity credentials")
-	}
 	if config.InstanceIdentityCredDir != "" {
 		logger.Info("instance-identity-enabled")
 		keyData, err := os.ReadFile(config.InstanceIdentityPrivateKeyPath)
@@ -216,7 +212,6 @@ func CredManagerFromConfig(logger lager.Logger, metronClient loggingclient.Ingre
 			certs[0],
 			privateKey,
 			handlers,
-			containerstore.WithServiceAccountIdentity(config.ServiceAccountIdentityEnabled),
 		), nil
 	}
 

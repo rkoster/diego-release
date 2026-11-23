@@ -63,7 +63,7 @@ func TestServiceAccountWireToInstanceCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 	logger := lagertest.NewTestLogger("account-wire")
-	manager := containerstore.NewCredManager(logger, &testhelpers.FakeIngressClient{}, time.Minute, rand.Reader, clock.NewClock(), ca, key, nil, containerstore.WithServiceAccountIdentity(true))
+	manager := containerstore.NewCredManager(logger, &testhelpers.FakeIngressClient{}, time.Minute, rand.Reader, clock.NewClock(), ca, key, nil)
 	helper := rep.RunRequestConversionHelper{ECRHelper: &fakeecrhelper.FakeECRHelper{}}
 	stack := rep.StackPathMap{"stack": "stack:/rootfs"}
 	account := &models.CertificateProperties{OrganizationalUnit: []string{"app:app-guid", "space:space-guid", "organization:org-guid"}, ServiceAccount: &models.ServiceAccount{Name: "payments-worker"}}
