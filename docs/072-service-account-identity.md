@@ -8,7 +8,7 @@ BBS validates the identity, retains it in stored LRP run-info assembly, and rep
 copies it into executor credential input. Empty certificate properties retain
 the existing unbound/staging behavior.
 
-When enabled, executor adds exactly one `<name>.<prefix>.svc.identity` DNS SAN to both
+When the runtime recipe carries an account, executor adds exactly one `<name>.<prefix>.svc.identity` DNS SAN to both
 instance-identity and C2C certificates. Instance CN/GUID SAN, IP SAN, caller
 app/space/organization OUs, C2C internal routes, usages and validity remain intact.
 Each credential and each instance uses independent keys; rotation generates new
@@ -17,22 +17,16 @@ keys. Instance GUIDs and internal-route names cannot use the reserved
 
 ## Rollout and configuration
 
-Both `rep` and `rep_windows` declare:
-
-```yaml
-diego:
-  executor:
-    service_account_identity_enabled: false
-```
-
-The default-off gate is independent of the CAPI provisioning/runtime gates.
-Enabling it requires the existing instance-identity CA/key, credential directory
-and positive validity period. Cells with the gate disabled reject assigned
-account credentials instead of silently omitting the account SAN. Credential
-managers without instance-identity support reject assigned accounts as well.
+Service-account activation is controlled by CAPI's provisioning/runtime gates;
+Diego has no separate service-account toggle. Both `rep` and `rep_windows`
+support valid account-bearing runtime recipes using the existing instance-identity
+CA/key, credential directory and positive validity period. Credential managers
+without instance-identity support reject account-bearing workloads at directory
+creation, initial credential generation and runner startup. Recipes without an
+account retain ordinary instance-identity and no-op behavior.
 
 Keep the CAPI runtime gate disabled until every participating BBS/rep/cell runs
-the compatible contract and cell configuration. Older software can discard unknown
+the compatible contract and has instance-identity credentials configured. Older software can discard unknown
 protobuf fields; this POC has no automatic foundation-wide capability negotiation
 or auction placement capability advertisement. The operator rollout gate must
 therefore cover all participating cells, including isolation segments and Windows.
@@ -63,5 +57,5 @@ and select the upstream module version once BBS PR #168 is merged and published.
 
 Local verification covers protobuf-to-rep-to-real-certificate flow for two apps
 and a runtime task, independent keys, renewal, unbind invariance, malformed and
-injected identity denial, cell gates, and both job templates. Live scheduling,
+injected identity denial, rejection without instance credentials, and both job templates. Live scheduling,
 staging, UAA token acquisition and Windows execution still require lab evidence.
