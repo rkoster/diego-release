@@ -71,13 +71,13 @@ describe 'rep' do
   describe 'rep.json.erb' do
     let(:template) { job.template('config/rep.json') }
 
-    it 'defaults service account identity to disabled' do
-      expect(JSON.parse(rendered_template)['service_account_identity_enabled']).to eq(false)
+    it 'does not render a separate service account identity toggle' do
+      expect(JSON.parse(rendered_template)).not_to have_key('service_account_identity_enabled')
     end
 
-    it 'renders explicitly enabled service account identity' do
-      deployment_manifest_fragment['diego']['executor']['service_account_identity_enabled'] = true
-      expect(JSON.parse(rendered_template)['service_account_identity_enabled']).to eq(true)
+    it 'does not declare a separate service account identity toggle' do
+      specification = YAML.safe_load_file(File.join(release_path, 'jobs', 'rep_windows', 'spec'))
+      expect(specification.fetch('properties')).not_to have_key('diego.executor.service_account_identity_enabled')
     end
 
     context 'lock_ttl' do
