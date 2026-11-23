@@ -80,7 +80,6 @@ var _ = Describe("CredManager", func() {
 			privateKey,
 			[]containerstore.CredentialHandler{fakeCredHandler},
 			containerstore.WithKeyGenerator(credManagerKeyGen),
-			containerstore.WithServiceAccountIdentity(true),
 		)
 	})
 
@@ -117,11 +116,18 @@ var _ = Describe("CredManager", func() {
 		})
 	})
 
-	It("rejects service account credentials unless the cell gate is enabled", func() {
+	It("issues qualified service account credentials without a cell toggle", func() {
 		manager := containerstore.NewCredManager(logger, fakeMetronClient, validityPeriod, reader, clock, CaCert, privateKey, []containerstore.CredentialHandler{fakeCredHandler})
 		container := executor.Container{Guid: "instance-guid", RunInfo: executor.RunInfo{CertificateProperties: executor.CertificateProperties{ServiceAccount: &executor.ServiceAccount{Name: "payments-worker", Prefix: "payments-team"}}}}
-		_, err := manager.GenerateInitialCredentials(logger, container)
-		Expect(err).To(MatchError(ContainSubstring("service account identity is not enabled")))
+		credentials, err := manager.GenerateInitialCredentials(logger, container)
+		Expect(err).NotTo(HaveOccurred())
+		for _, credential := range []containerstore.Credential{credentials.InstanceIdentityCredential, credentials.C2CCredential} {
+			block, _ := pem.Decode([]byte(credential.Cert))
+			Expect(block).NotTo(BeNil())
+			cert, err := x509.ParseCertificate(block.Bytes)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cert.DNSNames).To(ContainElement("payments-worker.payments-team.svc.identity"))
+		}
 	})
 
 	It("rejects service account SAN injection through the instance GUID", func() {

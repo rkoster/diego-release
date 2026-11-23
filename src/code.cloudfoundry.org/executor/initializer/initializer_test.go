@@ -615,10 +615,18 @@ var _ = Describe("Initializer", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			Context("when service account identity is enabled", func() {
-				BeforeEach(func() { config.ServiceAccountIdentityEnabled = true })
-				It("rejects enabled account identity without instance credentials", func() {
-					Expect(err).To(MatchError(ContainSubstring("service account identity requires instance identity")))
+			Context("when a workload requests a service account", func() {
+				It("rejects the workload without instance credentials", func() {
+					Expect(err).NotTo(HaveOccurred())
+					container.CertificateProperties.ServiceAccount = &executor.ServiceAccount{Name: "payments-worker", Prefix: "payments-team"}
+					mounts, env, err := credManager.CreateCredDir(logger, container)
+					Expect(err).To(MatchError("service account requires instance identity credentials"))
+					Expect(mounts).To(BeEmpty())
+					Expect(env).To(BeEmpty())
+					credentials, err := credManager.GenerateInitialCredentials(logger, container)
+					Expect(err).To(MatchError("service account requires instance identity credentials"))
+					Expect(credentials.InstanceIdentityCredential.IsEmpty()).To(BeTrue())
+					Expect(credentials.C2CCredential.IsEmpty()).To(BeTrue())
 				})
 			})
 		})
@@ -638,17 +646,19 @@ var _ = Describe("Initializer", func() {
 				Expect(bindMounts).NotTo(BeEmpty())
 			})
 
-			Context("when service account identity is enabled", func() {
-				BeforeEach(func() { config.ServiceAccountIdentityEnabled = true })
-				It("passes the enabled service account gate to the credential manager", func() {
+			Context("when a workload requests a service account", func() {
+				It("issues qualified service account credentials without a cell toggle", func() {
 					Expect(err).NotTo(HaveOccurred())
 					container.CertificateProperties.ServiceAccount = &executor.ServiceAccount{Name: "payments-worker", Prefix: "payments-team"}
 					credentials, err := credManager.GenerateInitialCredentials(logger, container)
 					Expect(err).NotTo(HaveOccurred())
-					block, _ := pem.Decode([]byte(credentials.InstanceIdentityCredential.Cert))
-					cert, err := x509.ParseCertificate(block.Bytes)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(cert.DNSNames).To(ContainElement("payments-worker.payments-team.svc.identity"))
+					for _, credential := range []containerstore.Credential{credentials.InstanceIdentityCredential, credentials.C2CCredential} {
+						block, _ := pem.Decode([]byte(credential.Cert))
+						Expect(block).NotTo(BeNil())
+						cert, err := x509.ParseCertificate(block.Bytes)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(cert.DNSNames).To(ContainElement("payments-worker.payments-team.svc.identity"))
+					}
 				})
 			})
 
